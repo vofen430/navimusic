@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build output
+frontend/dist/
+dist-electron/
+
+# Database (runtime data)
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Misc
+.gemini/
+
+# ncmplus: only keep the compiled binary, exclude source/.git
+ncmplus/*
+!ncmplus/build/

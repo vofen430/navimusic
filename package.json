@@ -1,0 +1,78 @@
+{
+  "name": "navimusic",
+  "version": "1.0.0",
+  "description": "NaviMusic - 网易云音乐第三方客户端",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "npm run dev:api",
+    "dev:api": "node server.js",
+    "dev:web": "npm --prefix frontend run dev",
+    "dev:all": "node scripts/dev-all.js",
+    "build": "npm run build:web",
+    "build:web": "npm --prefix frontend run build",
+    "test:e2e": "npm run build:web && node scripts/e2e.js",
+
+    "electron:dev": "npm run build:web && set PORT=3300&& electron .",
+    "electron:build": "npm run build:web && electron-builder --win --x64",
+    "electron:build:portable": "npm run build:web && electron-builder --win portable",
+    "electron:build:linux": "npm run build:web && electron-builder --linux",
+    "electron:rebuild": "electron-rebuild"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.8.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "NeteaseCloudMusicApi": "^4.0.0"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.53.1",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.0",
+    "@electron/rebuild": "^3.7.0"
+  },
+  "optionalDependencies": {
+    "ffi-napi": "^4.0.3",
+    "ref-napi": "^3.0.3"
+  },
+  "build": {
+    "appId": "com.navimusic.desktop",
+    "productName": "NaviMusic",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "server.js",
+      "db.js",
+      "electron/**",
+      "frontend/dist/**",
+      "node_modules/**",
+      "!node_modules/.cache/**"
+    ],
+    "extraResources": [
+      { "from": "assets/fonts/", "to": "assets/fonts/" },
+      { "from": "assets/wallpapers/", "to": "assets/wallpapers/" },
+      { "from": "data/", "to": "data/" }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "NaviMusic"
+    },
+    "portable": {
+      "artifactName": "NaviMusic-Portable.exe"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Audio"
+    }
+  }
+}
