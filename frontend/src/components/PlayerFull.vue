@@ -168,7 +168,7 @@ function onCoverMouseMove(e) {
   // Warm-up ramp: gradually increase over 400ms after mouse enters (easeOutCubic)
   const elapsed = performance.now() - specularEnterTime
   const t = Math.min(elapsed / 400, 1)
-  const ramp = 1 - Math.pow(1 - t, 3) // easeOutCubic: 0 → 1
+  const ramp = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2 // easeInOutCubic: 0 → 1
 
   // Tilt: ramp from 0 to full angle over 400ms to avoid abrupt snap at edge entry
   const rotateY = (x - 0.5) * 6 * ramp    // -3 to 3 deg, ramped

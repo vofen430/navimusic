@@ -42,6 +42,7 @@ export const usePlayerStore = defineStore('player', () => {
   function getAudio() {
     if (!audio) {
       audio = new Audio()
+      audio.preload = 'auto' // aggressively buffer audio for smooth playback
       audio.volume = volume.value
       audio.addEventListener('timeupdate', () => {
         currentTime.value = audio.currentTime
@@ -154,8 +155,8 @@ export const usePlayerStore = defineStore('player', () => {
         })
       } catch {}
 
-      // Load lyrics (with DB cache)
-      loadLyrics(song.id)
+      // Load lyrics — delay slightly to let audio buffering get priority
+      setTimeout(() => loadLyrics(song.id), 300)
     } catch (e) {
       console.error('Failed to play song:', e)
     } finally {
@@ -396,6 +397,18 @@ export const usePlayerStore = defineStore('player', () => {
     songInfo.value = { likeCount: 0, commentCount: 0 }
     songMetaLoading.value = true
     songMeta.value = null
+
+    // Wait for audio to buffer enough before loading non-critical metadata
+    // This ensures the audio stream gets maximum bandwidth during initial load
+    const a = audio
+    if (a && a.readyState < 3) {
+      await new Promise(resolve => {
+        const onReady = () => { a.removeEventListener('canplay', onReady); resolve() }
+        a.addEventListener('canplay', onReady)
+        // Fallback timeout: don't wait forever (2s max)
+        setTimeout(() => { a.removeEventListener('canplay', onReady); resolve() }, 2000)
+      })
+    }
 
     // Fetch comment count (fire and forget, non-blocking)
     try {
