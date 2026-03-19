@@ -1,5 +1,6 @@
 <template>
   <div class="app-container">
+    <TitleBar />
     <Toast />
     <LoginModal v-if="userStore.showLoginModal" @close="userStore.showLoginModal = false" />
     <QuickAddModal v-if="quickAddSong" :song="quickAddSong" @close="quickAddSong = null" />
@@ -175,6 +176,7 @@ import PlayerBar from './components/PlayerBar.vue'
 import PlayerFull from './components/PlayerFull.vue'
 import PureMode from './components/PureMode.vue'
 import CanvasMode from './components/CanvasMode.vue'
+import TitleBar from './components/TitleBar.vue'
 
 const playerStore = usePlayerStore()
 const userStore = useUserStore()

@@ -151,6 +151,9 @@
                     </button>
                     <Transition name="dropdown-fade">
                       <div v-if="showDetailMenu" class="detail-more-dropdown">
+                        <button class="detail-more-item" @click="copyShareLink(); showDetailMenu = false">
+                          <Icon name="link" :size="16" /> 复制链接
+                        </button>
                         <button v-if="isOwner && songs.length && !editMode" class="detail-more-item" @click="enterEditMode(); showDetailMenu = false">
                           <Icon name="edit" :size="16" /> 编辑歌单
                         </button>
@@ -1380,6 +1383,16 @@ async function onDropSong(targetIdx) {
 
 async function onCreate() { if (!newName.value.trim()) return; try { await createPlaylist(newName.value.trim(), newPrivacy.value); userStore.fetchPlaylists(); showCreateDialog.value = false; newName.value = ''; newPrivacy.value = false; window.__toast?.('创建成功', 'success') } catch { window.__toast?.('创建失败', 'error') } }
 async function removeSong(song) { try { await removeSongFromPlaylist(selectedId.value, song.id); songs.value = songs.value.filter(s => s.id !== song.id); plCache.setSongs(selectedId.value, songs.value); clearSongSelection(); syncTrackCount(selectedId.value, songs.value.length); window.__toast?.('已移除', 'success') } catch { window.__toast?.('失败', 'error') } }
+async function copyShareLink() {
+  const url = `https://music.163.com/playlist?id=${selectedId.value}`
+  try {
+    await navigator.clipboard.writeText(url)
+    window.__toast?.('链接已复制到剪贴板', 'success')
+  } catch {
+    window.__toast?.(url, 'info')
+  }
+}
+
 async function confirmMakePublic() {
   if (togglingPrivacy.value) return
   togglingPrivacy.value = true

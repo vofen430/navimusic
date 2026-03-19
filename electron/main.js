@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron')
+const { app, BrowserWindow, ipcMain, Menu } = require('electron')
 const path = require('path')
 
 // ─── Config ───
@@ -27,7 +27,7 @@ function createWindow() {
   const winOptions = {
     width: 1280,
     height: 800,
-    frame: true,
+    frame: false,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -37,6 +37,7 @@ function createWindow() {
     icon: path.join(__dirname, '..', 'assets', 'icon.png'),
   }
 
+  Menu.setApplicationMenu(null)
   mainWin = new BrowserWindow(winOptions)
   mainWin.loadURL(`http://localhost:${PORT}`)
 
@@ -158,6 +159,16 @@ function setupIPC() {
 
   ipcMain.handle('get-platform', () => process.platform)
   ipcMain.handle('is-desktop-mode', () => desktopMode)
+
+  // Window control IPC
+  ipcMain.on('window-minimize', () => { if (mainWin) mainWin.minimize() })
+  ipcMain.on('window-maximize', () => {
+    if (!mainWin) return
+    if (mainWin.isMaximized()) mainWin.unmaximize()
+    else mainWin.maximize()
+  })
+  ipcMain.on('window-close', () => { if (mainWin) mainWin.close() })
+  ipcMain.handle('window-is-maximized', () => mainWin ? mainWin.isMaximized() : false)
 }
 
 // ─── App Lifecycle ───
