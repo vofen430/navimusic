@@ -164,24 +164,30 @@ function onCoverMouseMove(e) {
   const rect = el.getBoundingClientRect()
   const x = (e.clientX - rect.left) / rect.width   // 0..1
   const y = (e.clientY - rect.top) / rect.height    // 0..1
-  const rotateY = (x - 0.5) * 6    // -3 to 3 deg
-  const rotateX = (0.5 - y) * -6   // inverted: press down toward cursor
+
+  // Warm-up ramp: gradually increase over 400ms after mouse enters (easeOutCubic)
+  const elapsed = performance.now() - specularEnterTime
+  const t = Math.min(elapsed / 400, 1)
+  const ramp = 1 - Math.pow(1 - t, 3) // easeOutCubic: 0 → 1
+
+  // Tilt: ramp from 0 to full angle over 400ms to avoid abrupt snap at edge entry
+  const rotateY = (x - 0.5) * 6 * ramp    // -3 to 3 deg, ramped
+  const rotateX = (0.5 - y) * -6 * ramp   // inverted: press down toward cursor, ramped
+  const scaleVal = 1 + 0.02 * ramp         // scale also ramps
+  // Transition: start slower (0.25s) and speed up to 0.1s as ramp completes
+  const transDur = (0.25 - 0.15 * ramp).toFixed(2)
   coverTiltStyle.value = {
-    transform: `perspective(600px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.02)`,
-    transition: 'transform 0.1s ease-out',
+    transform: `perspective(600px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${scaleVal})`,
+    transition: `transform ${transDur}s ease-out`,
   }
   // Specular: light reflects from opposite side of mouse (mirror position)
   const lightX = (1 - x) * 100
   const lightY = (1 - y) * 100
   const intensity = Math.hypot(x - 0.5, y - 0.5) * 2 // 0..~1
-  // Warm-up ramp: gradually increase over 400ms after mouse enters (easeOutCubic)
-  const elapsed = performance.now() - specularEnterTime
-  const t = Math.min(elapsed / 400, 1)
-  const ramp = 1 - Math.pow(1 - t, 3) // easeOutCubic: 0 → 1
   const opacity = (0.15 + intensity * 0.35) * ramp
   specularStyle.value = {
     background: `radial-gradient(ellipse at ${lightX}% ${lightY}%, rgba(255,255,255,${opacity.toFixed(3)}) 0%, rgba(255,255,255,${(opacity * 0.4).toFixed(3)}) 45%, transparent 80%)`,
-    transition: 'background 0.1s ease-out',
+    transition: `background ${transDur}s ease-out`,
   }
 }
 function onCoverMouseLeave() {
