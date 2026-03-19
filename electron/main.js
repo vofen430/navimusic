@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu } = require('electron')
+const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage } = require('electron')
 const path = require('path')
 
 // ─── Config ───
@@ -15,6 +15,7 @@ if (!gotLock) { app.quit(); process.exit(0) }
 
 let mainWin = null
 let desktopMode = false
+let tray = null
 
 // ─── Start Express API server ───
 function startServer() {
@@ -48,6 +49,80 @@ function createWindow() {
   mainWin.on('closed', () => { mainWin = null })
 }
 
+// ─── System Tray ───
+function createTray() {
+  const iconPath = path.join(__dirname, '..', 'assets', 'icon.png')
+  const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 })
+  tray = new Tray(icon)
+  tray.setToolTip('NaviMusic')
+  updateTrayMenu()
+
+  tray.on('click', () => {
+    if (!mainWin) return
+    if (desktopMode) return // In desktop mode, don't restore on click
+    if (mainWin.isVisible()) {
+      mainWin.focus()
+    } else {
+      mainWin.show()
+    }
+  })
+}
+
+function updateTrayMenu() {
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: '显示窗口',
+      click: () => {
+        if (!mainWin) return
+        if (desktopMode) {
+          // Exit desktop mode first, then show
+          setDesktopMode(false)
+        }
+        mainWin.show()
+        mainWin.focus()
+      }
+    },
+    { type: 'separator' },
+    ...(desktopMode ? [{
+      label: '退出壁纸模式',
+      click: () => { setDesktopMode(false) }
+    }] : [{
+      label: '进入壁纸模式',
+      click: () => { setDesktopMode(true) }
+    }]),
+    { type: 'separator' },
+    {
+      label: '退出 NaviMusic',
+      click: () => {
+        if (desktopMode && mainWin) {
+          // Clean up desktop mode before quitting
+          try { setDesktopModeWin32(mainWin, false) } catch {}
+        }
+        app.quit()
+      }
+    }
+  ])
+  tray.setContextMenu(contextMenu)
+}
+
+// ─── Desktop Mode Controller ───
+function setDesktopMode(enable) {
+  desktopMode = enable
+  if (!mainWin) return
+
+  if (process.platform === 'win32') {
+    setDesktopModeWin32(mainWin, enable)
+  } else if (process.platform === 'linux') {
+    setDesktopModeLinux(mainWin, enable)
+  }
+
+  // Notify renderer of state change
+  if (mainWin.webContents) {
+    mainWin.webContents.send('desktop-mode-changed', enable)
+  }
+  updateTrayMenu()
+}
+
 // ─── Windows WorkerW Desktop Mode ───
 // Sets the Electron window as a child of the WorkerW behind desktop icons.
 // Same technique used by Wallpaper Engine.
@@ -56,8 +131,17 @@ function setDesktopModeWin32(win, enable) {
   try {
     ffi = require('ffi-napi')
     ref = require('ref-napi')
-  } catch {
-    console.warn('[Desktop Mode] ffi-napi not available, skipping WorkerW setup')
+  } catch (err) {
+    console.warn('[Desktop Mode] ffi-napi not available:', err.message)
+    console.warn('[Desktop Mode] Please run: npm install && npm run electron:rebuild')
+    // Fallback: at least do skip-taskbar + fullscreen
+    if (enable) {
+      win.setSkipTaskbar(true)
+      win.setFullScreen(true)
+    } else {
+      win.setSkipTaskbar(false)
+      win.setFullScreen(false)
+    }
     return false
   }
 
@@ -87,23 +171,19 @@ function setDesktopModeWin32(win, enable) {
     const enumCallback = ffi.Callback('bool', ['pointer', 'long'], (hwnd) => {
       const shell = user32.FindWindowExW(hwnd, null, 'SHELLDLL_DefView', null)
       if (!shell.isNull()) {
-        // The WorkerW we want is the NEXT sibling enumerated
         workerW = hwnd
       }
-      return true // continue enumeration
+      return true
     })
     user32.EnumWindows(enumCallback, 0)
 
-    // Actually we need the WorkerW that is a sibling AFTER the one containing SHELLDLL_DefView
-    // Re-enumerate to find it
+    // Re-enumerate to find the WorkerW sibling AFTER SHELLDLL_DefView
     let foundShell = false
     workerW = null
     const enumCallback2 = ffi.Callback('bool', ['pointer', 'long'], (hwnd) => {
       if (foundShell) {
-        const className = 'WorkerW'
-        // Check if this is a WorkerW
         workerW = hwnd
-        return false // stop
+        return false
       }
       const shell = user32.FindWindowExW(hwnd, null, 'SHELLDLL_DefView', null)
       if (!shell.isNull()) foundShell = true
@@ -117,8 +197,7 @@ function setDesktopModeWin32(win, enable) {
     const hwnd = win.getNativeWindowHandle()
     user32.SetParent(hwnd, workerW)
 
-    // 5. Make fullscreen, no border
-    const { width, height } = require('electron').screen.getPrimaryDisplay().workAreaSize
+    // 5. Make fullscreen, skip taskbar (tray still visible)
     win.setFullScreen(true)
     win.setSkipTaskbar(true)
 
@@ -137,8 +216,6 @@ function setDesktopModeWin32(win, enable) {
 
 // ─── Linux Desktop Mode ───
 function setDesktopModeLinux(win, enable) {
-  // Recreate window with type: 'desktop' isn't easily doable after creation
-  // On Linux, this is best set at window creation time
   console.log(`[Desktop Mode] Linux mode ${enable ? 'on' : 'off'} (requires restart)`)
   return false
 }
@@ -146,15 +223,7 @@ function setDesktopModeLinux(win, enable) {
 // ─── IPC Handlers ───
 function setupIPC() {
   ipcMain.on('set-desktop-mode', (_, enable) => {
-    desktopMode = enable
-    if (!mainWin) return
-
-    if (process.platform === 'win32') {
-      setDesktopModeWin32(mainWin, enable)
-    } else if (process.platform === 'linux') {
-      setDesktopModeLinux(mainWin, enable)
-    }
-    // macOS: not implemented yet
+    setDesktopMode(enable)
   })
 
   ipcMain.handle('get-platform', () => process.platform)
@@ -175,6 +244,7 @@ function setupIPC() {
 app.on('ready', () => {
   startServer()
   setupIPC()
+  createTray()
 
   // Wait a moment for server to start
   setTimeout(createWindow, 800)

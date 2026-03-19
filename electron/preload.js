@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setDesktopMode: (enable) => ipcRenderer.send('set-desktop-mode', enable),
   isDesktopMode: () => ipcRenderer.invoke('is-desktop-mode'),
   getPlatform: () => ipcRenderer.invoke('get-platform'),
+  onDesktopModeChanged: (callback) => {
+    ipcRenderer.on('desktop-mode-changed', (_, enabled) => callback(enabled))
+  },
 
   // Window controls
   minimizeWindow: () => ipcRenderer.send('window-minimize'),

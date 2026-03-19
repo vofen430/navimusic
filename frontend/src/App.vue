@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <TitleBar />
+    <TitleBar :hidden="pureMode || canvasMode" />
     <Toast />
     <LoginModal v-if="userStore.showLoginModal" @close="userStore.showLoginModal = false" />
     <QuickAddModal v-if="quickAddSong" :song="quickAddSong" @close="quickAddSong = null" />

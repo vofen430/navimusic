@@ -294,6 +294,7 @@ input:focus, textarea:focus {
   gap: 12px;
   transition: padding 0.35s cubic-bezier(.4,0,.2,1),
               gap 0.35s cubic-bezier(.4,0,.2,1);
+  -webkit-app-region: drag;
 }
 
 .sidebar-logo h1 {

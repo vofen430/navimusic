@@ -1,23 +1,18 @@
 <template>
-  <div v-if="isElectron" class="titlebar" :class="{ 'is-maximized': isMax }">
-    <!-- Drag region fills the entire bar -->
-    <div class="titlebar-drag"></div>
-    <!-- Window controls (right side) -->
-    <div class="titlebar-controls">
+  <Transition name="tb-fade">
+    <div v-if="isElectron && !hidden" class="titlebar-overlay">
       <button class="tb-btn tb-minimize" @click="minimize" title="最小化">
         <svg width="12" height="12" viewBox="0 0 12 12">
           <rect x="1" y="5.5" width="10" height="1" rx="0.5" fill="currentColor"/>
         </svg>
       </button>
       <button class="tb-btn tb-maximize" @click="maximize" :title="isMax ? '还原' : '最大化'">
-        <!-- Maximize icon -->
         <svg v-if="!isMax" width="12" height="12" viewBox="0 0 12 12">
           <rect x="1.5" y="1.5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1" fill="none"/>
         </svg>
-        <!-- Restore icon (two overlapping rectangles) -->
         <svg v-else width="12" height="12" viewBox="0 0 12 12">
           <rect x="3" y="0.5" width="8" height="8" rx="1.2" stroke="currentColor" stroke-width="1" fill="none"/>
-          <rect x="0.5" y="3" width="8" height="8" rx="1.2" stroke="currentColor" stroke-width="1" fill="var(--bg-secondary)"/>
+          <rect x="0.5" y="3" width="8" height="8" rx="1.2" stroke="currentColor" stroke-width="1" fill="var(--bg-secondary, #141416)"/>
         </svg>
       </button>
       <button class="tb-btn tb-close" @click="closeWin" title="关闭">
@@ -26,11 +21,15 @@
         </svg>
       </button>
     </div>
-  </div>
+  </Transition>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+
+defineProps({
+  hidden: { type: Boolean, default: false }
+})
 
 const isElectron = !!(window.electronAPI?.isElectron)
 const isMax = ref(false)
@@ -46,7 +45,6 @@ async function syncMaxState() {
 function minimize() { window.electronAPI?.minimizeWindow() }
 function maximize() {
   window.electronAPI?.maximizeWindow()
-  // poll after a short delay to get the new state
   setTimeout(syncMaxState, 100)
 }
 function closeWin() { window.electronAPI?.closeWindow() }
@@ -54,8 +52,6 @@ function closeWin() { window.electronAPI?.closeWindow() }
 onMounted(() => {
   if (!isElectron) return
   syncMaxState()
-  // Poll maximized state periodically to keep icon in sync
-  // (e.g. when user double-clicks title bar or uses Win+Up)
   pollTimer = setInterval(syncMaxState, 500)
 })
 
@@ -65,36 +61,20 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.titlebar {
-  position: relative;
-  height: 38px;
-  min-height: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  background: var(--bg-secondary);
+.titlebar-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
   z-index: 9000;
+  display: flex;
+  align-items: stretch;
+  height: 36px;
+  border-radius: 0 0 0 10px;
+  overflow: hidden;
+  -webkit-app-region: no-drag;
   user-select: none;
 }
 
-/* Drag region spans entire bar */
-.titlebar-drag {
-  position: absolute;
-  inset: 0;
-  -webkit-app-region: drag;
-}
-
-/* Controls container */
-.titlebar-controls {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  height: 100%;
-  -webkit-app-region: no-drag;
-  z-index: 1;
-}
-
-/* Individual button */
 .tb-btn {
   width: 46px;
   height: 100%;
@@ -118,7 +98,6 @@ onUnmounted(() => {
   background: var(--bg-active);
 }
 
-/* Close button special styling */
 .tb-close:hover {
   background: #e81123;
   color: white;
@@ -127,4 +106,9 @@ onUnmounted(() => {
   background: #bf0f1d;
   color: white;
 }
+
+/* Fade transition for hide/show */
+.tb-fade-enter-active { transition: opacity 0.2s ease; }
+.tb-fade-leave-active { transition: opacity 0.15s ease; }
+.tb-fade-enter-from, .tb-fade-leave-to { opacity: 0; }
 </style>
